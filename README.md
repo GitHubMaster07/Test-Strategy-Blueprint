@@ -208,5 +208,4 @@ jobs:
 Sergei Volodin
 🏙️ Chicago, IL
 💼 Senior SDET / QA Automation Engineer
-🔗 [GitHub](https://github.com/GitHubMaster07/-Sergei-Volodin-_portfolio)
 🧪 Passionate about test automation, CI/CD, and quality engineering excellence.
