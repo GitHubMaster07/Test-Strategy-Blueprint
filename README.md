@@ -11,7 +11,7 @@
 ---
 
 ## 🧠 Project Overview
-This is a **hybrid automation framework** built using:
+This is a **Strategic Quality Blueprint** built using:
 - **Java + Selenium WebDriver** for UI testing  
 - **RestAssured** for API automation  
 - **Cucumber (BDD)** for feature-driven testing  
@@ -57,20 +57,32 @@ To ensure functional, regression, and integration-level validation of web and AP
 ## 🧩 2. TEST STRATEGY
 
 ### 🧱 Framework Architecture
-src/
-    ├── main/java/core → DriverFactory, Config, Utilities
+java-selenium-bdd-framework/
+```Plaintext
+├── src/
+│   ├── main/java/
+│   │   └── core/              # DriverFactory (ThreadLocal), ConfigReader, Utils
+│   ├── test/java/
+│   │   ├── pages/             # Page Object Model (POM) classes
+│   │   ├── api/               # RestAssured controllers, Endpoints & Payloads
+│   │   ├── stepdefs/          # Cucumber Step Definitions
+│   │   ├── db/                # JDBC Database connectors & queries
+│   │   └── runners/           # TestNG Runner files (Parallel execution config)
+│   └── test/resources/
+│       ├── features/          # BDD Gherkin files (.feature)
+│       ├── testdata/          # Environment-specific JSON/Properties files
+│       └── config.properties  # Global variables (URL, Browser, Timeouts)
+├── pom.xml                    # Maven dependencies (Selenium, RestAssured, Cucumber)
+├── .gitattributes             # Ensures 100% Java language detection
+└── .gitignore                 # Excludes /target, /allure-results, and .idea/
+```
+### 🔍 Requirements Traceability Matrix (RTM)
+This matrix ensures 100% test coverage by mapping business requirements to automated features and defect tracking.
 
-  ├── test/java/pages → Page Object Model (POM)
-
-  ├── test/java/api → API Test Classes (RestAssured)
-
-  ├── test/java/data → Database Utilities
-
-  ├── test/java/stepdefs → Step Definitions (BDD)
-
-  ├── test/java/runners → Cucumber/TestNG Runners
-
-  └── test/resources/features → Feature Files
+| Requirement | Feature File | Test Case ID | Defect Link |
+| :--- | :--- | :--- | :--- |
+| User Authentication | login.feature | TC-UI-01 | [BUG-001](#) |
+| Booking API | create_booking.feature | TC-API-05 | [BUG-002](#) |
 
 ### 🔧 Tools & Tech Stack
 | Layer | Tool | Purpose |
