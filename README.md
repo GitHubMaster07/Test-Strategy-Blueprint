@@ -1,4 +1,4 @@
-# 🚀 Test Strategy Documentation Samples
+# 🚀 Test-Strategy-Blueprint
 
 ![Java](https://img.shields.io/badge/Language-Java_11-blue?logo=java)
 ![Selenium](https://img.shields.io/badge/UI%20Testing-Selenium-green?logo=selenium)
