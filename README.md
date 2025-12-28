@@ -131,16 +131,40 @@ We prioritize API and Integration tests over UI tests to ensure a fast, stable, 
 ## 📄 3. TEST CASE EXAMPLES
 
 ### ✅ Example 1: UI Test (Login Page)
-**Feature:** User Login  
-**Scenario:** Successful login with valid credentials  
+```Feature: User Login
+  As a registered user
+  I want to log into the application
+  So that I can access my secure dashboard
 
-| Step | Action | Expected Result |
-|------|---------|-----------------|
-| 1 | Navigate to Login page | Login page loads |
-| 2 | Enter valid credentials | Fields accept input |
-| 3 | Click Login button | Redirects to secure area |
-| 4 | Verify message | Displays “You logged into a secure area!” |
+  @smoke @regression
+  Scenario: Successful login with valid credentials
+    Given I navigate to the Login page
+    When I enter valid username and password
+    And I click the Login button
+    Then I should be redirected to the "Secure Area" page
+    And I should see the message "You logged into a secure area!"
+```
+Java Implementation (Page Object Model) This shows how the Gherkin steps interact with the UI elements via Selenium.
+```java
+public class LoginPage extends BasePage {
+    // Locators
+    private final By usernameField = By.id("username");
+    private final By passwordField = By.id("password");
+    private final By loginButton = By.cssSelector("button[type='submit']");
+    private final By flashMessage = By.id("flash");
 
+    // Actions
+    public void login(String user, String pass) {
+        enterText(usernameField, user);
+        enterText(passwordField, pass);
+        click(loginButton);
+    }
+
+    public String getMessageText() {
+        return getText(flashMessage);
+    }
+}
+```
 
 ### 🧪 Example 2: API Test (Booking Creation)
 ```java
@@ -160,11 +184,31 @@ public void createBooking() {
 ```
 
 ### 🧩 Example 3: Database Validation
-- Connection conn = DriverManager.getConnection(dbUrl, username, password);
-- PreparedStatement stmt = conn.prepareStatement("SELECT * FROM users WHERE id = ?");
-- stmt.setInt(1, 1001);
-- ResultSet rs = stmt.executeQuery();
-- Assert.assertTrue(rs.next(), "Record not found in DB");
+Business Logic: Verify that when a user is created, the record is correctly persisted in the PostgreSQL/MySQL database with the correct status.
+```java
+@Test(groups = {"database", "regression"})
+public void verifyUserPersistence() throws SQLException {
+    String userId = "1001";
+    String expectedEmail = "sergei.test@example.com";
+
+    // 1. Execute SQL Query via JDBC Utility
+    String query = "SELECT email, status FROM users WHERE id = ?";
+    ResultSet rs = DatabaseUtils.executeQuery(query, userId);
+
+    // 2. Perform Assertions on Result Set
+    if (rs.next()) {
+        String actualEmail = rs.getString("email");
+        String status = rs.getString("status");
+
+        Assert.assertEquals(actualEmail, expectedEmail, "Database email mismatch!");
+        Assert.assertEquals(status, "ACTIVE", "User should have ACTIVE status in DB");
+    } else {
+        Assert.fail("Record not found in Database for User ID: " + userId);
+    }
+}
+```
+Java Implementation (JDBC + TestNG) This shows how wrap database connections into reusable utility methods for clean test scripts.
+
 ---
 ### 🐞 4. BUG REPORT EXAMPLES
 | ID      | Summary                            | Steps to Reproduce                    | Expected Result         | Actual Result             | Severity | Status      |
