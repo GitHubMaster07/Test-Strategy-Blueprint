@@ -57,8 +57,9 @@ To ensure functional, regression, and integration-level validation of web and AP
 ## 🧩 2. TEST STRATEGY
 
 ### 🧱 Framework Architecture
+
+```text
 java-selenium-bdd-framework/
-```Plaintext
 ├── src/
 │   ├── main/java/
 │   │   └── core/              # DriverFactory (ThreadLocal), ConfigReader, Utils
