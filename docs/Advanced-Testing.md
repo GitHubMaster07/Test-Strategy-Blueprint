@@ -1,368 +1,412 @@
-# Advanced Testing
+# Advanced and Non-Functional Quality Strategy
 
-This document defines the non‑functional and enterprise‑level testing disciplines required to ensure system reliability, performance, security, accessibility, and operational readiness.
+## 1. Purpose
 
-Each section includes:
-- Purpose
-- Scope
-- Coverage expectations
-- Best practices
-- Anti‑patterns
-- Tooling recommendations (where applicable)
+This document defines how non-functional quality is incorporated into architecture, delivery, CI/CD, and release decisions.
+
+Security, performance, resilience, accessibility, observability, data protection, and recoverability are not “final-phase testing.” They are quality attributes that require explicit ownership, measurable expectations, and evidence throughout the SDLC.
 
 ---
 
-## 1. Security Testing
+## 2. Non-Functional Risk Model
 
-### 1.1 Purpose
-Ensure the system is protected against vulnerabilities, unauthorized access, data leaks, and compliance violations.
+Non-functional depth is driven by business impact, architecture, regulatory exposure, expected load, and operational criticality.
 
-### 1.2 Scope
-- Authentication & authorization
-- Input validation & sanitization
-- OWASP Top 10 vulnerabilities
-- Secrets management
-- Transport security (TLS)
-- API security (tokens, scopes, roles)
+| Quality Attribute | Example High-Risk Trigger | Typical Evidence |
+|---|---|---|
+| Security | sensitive data, privileged access | SAST/DAST, auth tests, threat scenarios |
+| Performance | high concurrency, latency-sensitive flow | p95/p99, throughput, resource metrics |
+| Resilience | distributed dependencies | fault injection, recovery evidence |
+| Accessibility | customer-facing UI | automated scan + manual critical-flow checks |
+| Observability | multi-service transactions | logs, traces, correlation IDs, alerts |
+| Recoverability | critical data/service | restore, failover, RPO/RTO evidence |
 
-### 1.3 Coverage Expectations
-- All critical endpoints tested for OWASP Top 10
-- All authentication flows validated
-- All sensitive data encrypted in transit
-
-### 1.4 Best Practices
-- Use OWASP ASVS as baseline
-- Automated security scans in CI/CD
-- Static analysis (SAST)
-- Dynamic analysis (DAST)
-- Secrets scanning (GitHub Advanced Security)
-
-### 1.5 Anti‑Patterns
-- Hardcoded credentials
-- Testing security only manually
-- Ignoring authorization boundaries
+A low-risk internal utility does not require the same NFR depth as a regulated customer-facing platform.
 
 ---
 
-## 2. Performance & Load Testing
+## 3. Security Engineering
 
-### 2.1 Purpose
-Validate system performance under expected, peak, and stress conditions.
+### Objective
+Prevent unauthorized access, sensitive-data exposure, insecure design, and exploitable behavior.
 
-### 2.2 Scope
-- Response time
-- Throughput
-- Concurrency
-- Resource utilization
-- Scalability
-- Load shedding behavior
+### Shift-left controls
+- threat modeling for high-risk changes,
+- dependency/secret scanning,
+- SAST,
+- API authorization tests,
+- secure code/configuration review.
 
-### 2.3 Coverage Expectations
-- Baseline performance for all critical APIs
-- Load tests for peak traffic
-- Stress tests for system limits
-- Soak tests for long‑running stability
+### Runtime validation
+- DAST where applicable,
+- authentication/authorization boundaries,
+- token/session behavior,
+- input validation,
+- abuse/error scenarios,
+- transport and security headers.
 
-### 2.4 Best Practices
-- Use JMeter, Gatling, or k6
-- Test with production‑like data
-- Monitor CPU, memory, GC, DB load
-- Define SLAs and SLOs
-- Integrate performance tests into CI/CD (nightly)
+### Release gate examples
+**NO-GO** may be appropriate for:
+- exploitable critical/high vulnerability without accepted mitigation,
+- broken authorization on sensitive operations,
+- exposed secrets,
+- known sensitive-data leakage.
 
-### 2.5 Anti‑Patterns
-- Running performance tests in non‑isolated environments
-- Using unrealistic test data
-- Testing only happy paths
+Lower-severity findings may be accepted only with an owner, remediation date, and documented residual risk.
 
----
-
-## 3. Reliability & Chaos Testing
-
-### 3.1 Purpose
-Ensure the system behaves correctly under failures, latency, and unexpected conditions.
-
-### 3.2 Scope
-- Network failures
-- Latency injection
-- Service outages
-- Resource exhaustion
-- Retry & backoff behavior
-- Circuit breaker validation
-
-### 3.3 Coverage Expectations
-- All critical services tested for resilience
-- All retry logic validated
-- All fallback paths validated
-
-### 3.4 Best Practices
-- Use chaos tools (Gremlin, Chaos Mesh)
-- Define steady‑state hypothesis
-- Inject controlled failures
-- Validate recovery time
-
-### 3.5 Anti‑Patterns
-- Running chaos tests in production without safeguards
-- No rollback plan
-- No monitoring during chaos experiments
+### Anti-patterns
+- treating OWASP scanning as complete security testing,
+- testing authentication but not authorization,
+- suppressing findings without documented rationale,
+- security testing only before production release.
 
 ---
 
-## 4. Accessibility Testing
+## 4. Performance Engineering
 
-### 4.1 Purpose
-Ensure the application is usable by people with disabilities and meets accessibility standards.
+### Objective
+Demonstrate that the system meets workload and latency expectations with sufficient capacity and stability.
 
-### 4.2 Scope
-- WCAG 2.1 AA compliance
-- Keyboard navigation
-- Screen reader compatibility
-- Color contrast
-- ARIA attributes
+### Test types
+- baseline,
+- load,
+- stress,
+- spike,
+- soak/endurance,
+- scalability/capacity validation.
 
-### 4.3 Coverage Expectations
-- All critical UI flows tested
-- Automated accessibility scans in CI
+### Workload model
+A meaningful performance test defines:
 
-### 4.4 Best Practices
-- Use axe-core, Lighthouse, or Pa11y
-- Validate semantic HTML
-- Validate focus management
-- Validate alt text for images
+- user/request mix,
+- concurrency/arrival rate,
+- test duration,
+- production-like data characteristics,
+- expected peak/burst behavior,
+- dependency constraints.
 
-### 4.5 Anti‑Patterns
-- Relying only on manual testing
-- Ignoring keyboard-only navigation
-- Using non-semantic HTML
+### Metrics
+At minimum, evaluate relevant combinations of:
 
----
+- p50/p95/p99 latency,
+- throughput,
+- error rate,
+- saturation,
+- CPU/memory/GC,
+- database/query behavior,
+- dependency latency,
+- queue/backlog growth.
 
-## 5. Usability Testing
+Average response time alone is insufficient.
 
-### 5.1 Purpose
-Ensure the application is intuitive, efficient, and user-friendly.
+### Quality gate example
+A release can fail performance validation when a critical workflow exceeds its agreed SLO, error rate breaches tolerance, or a material regression is observed relative to an approved baseline.
 
-### 5.2 Scope
-- Navigation flow
-- Error messages
-- Form usability
-- Mobile responsiveness
-- User journey friction points
+### CI/CD strategy
+- lightweight performance smoke on selected changes,
+- scheduled/nightly baseline comparisons,
+- larger load/stress tests in controlled environments before high-risk releases.
 
-### 5.3 Coverage Expectations
-- All major user journeys evaluated
-- All forms validated for clarity and error handling
-
-### 5.4 Best Practices
-- Use heuristic evaluation
-- Conduct user interviews (if applicable)
-- Use analytics to identify friction points
-
-### 5.5 Anti‑Patterns
-- Over-relying on internal testers
-- Ignoring user feedback
-- No usability metrics
+### Anti-patterns
+- generating unrealistic load,
+- running performance tests in a noisy shared environment and treating results as absolute,
+- testing without telemetry,
+- declaring success based only on client-side response time.
 
 ---
 
-## 6. Observability Testing
+## 5. Resilience and Chaos Engineering
 
-### 6.1 Purpose
-Ensure the system is fully observable and provides actionable insights during failures.
+### Objective
+Validate that critical capabilities degrade predictably and recover within agreed expectations when components fail.
 
-### 6.2 Scope
-- Logging
-- Metrics
-- Tracing
-- Correlation IDs
-- Log levels
-- Error categorization
+### Hypothesis-driven approach
+Each experiment should define:
 
-### 6.3 Coverage Expectations
-- All critical flows produce logs, metrics, and traces
-- All logs include correlation IDs
-- All errors categorized consistently
+1. steady state,
+2. failure hypothesis,
+3. blast radius,
+4. expected behavior,
+5. abort condition,
+6. recovery evidence.
 
-### 6.4 Best Practices
-- Use OpenTelemetry
-- Validate logs in CI
-- Validate trace propagation across services
-- Validate metric thresholds
+### Example failure scenarios
+- dependency latency/outage,
+- network interruption,
+- message duplication,
+- unavailable database replica,
+- exhausted connection pool,
+- pod/container termination,
+- partial region/service degradation.
 
-### 6.5 Anti‑Patterns
-- Logging sensitive data
-- Missing correlation IDs
-- Overlogging (noise)
+### Evidence
+- graceful degradation,
+- retry/backoff behavior,
+- circuit breaker behavior,
+- data consistency,
+- alerting,
+- recovery time,
+- absence of cascading failure.
 
----
+### Governance
+Production chaos experiments require safeguards, observability, explicit ownership, and rollback/abort controls. Not every resilience test belongs in production.
 
-## 7. Test Data Management
-
-### 7.1 Purpose
-Ensure reliable, consistent, and compliant test data across environments.
-
-### 7.2 Scope
-- Synthetic data generation
-- Data masking
-- Data refresh strategy
-- Environment-specific datasets
-- Deterministic test data
-
-### 7.3 Coverage Expectations
-- No production data in lower environments
-- All sensitive fields masked
-- All tests use deterministic data builders
-
-### 7.4 Best Practices
-- Use data factories/builders
-- Use seed-based randomization
-- Maintain separate test data per environment
-- Automate data refresh
-
-### 7.5 Anti‑Patterns
-- Hardcoding test data
-- Using production data in QA
-- Shared mutable data across tests
+### Anti-patterns
+- random failure injection without a hypothesis,
+- chaos with no monitoring,
+- testing resilience only after an incident,
+- assuming retries equal resilience.
 
 ---
 
-## 8. Environment & Configuration Testing
+## 6. Accessibility Quality
 
-### 8.1 Purpose
-Ensure environment consistency, configuration correctness, and deployment reliability.
+### Objective
+Ensure customer-facing experiences are usable by people with disabilities and meet applicable accessibility standards.
 
-### 8.2 Scope
-- Environment parity (QA → Staging → Prod)
-- Config validation
-- Feature flags
-- Secrets injection
-- Deployment validation
+### Automation coverage
+Automated tools such as axe-core, Lighthouse, or Pa11y can detect many structural violations, but automation cannot prove complete accessibility.
 
-### 8.3 Coverage Expectations
-- All configs validated before test execution
-- All feature flags tested in both states
-- All secrets injected securely
+### Manual/experience-based checks
+Critical workflows may require:
 
-### 8.4 Best Practices
-- Validate configs on startup
-- Use schema-based config validation
-- Use environment profiles
-- Automate environment smoke tests
+- keyboard-only navigation,
+- focus order/visibility,
+- screen-reader semantics,
+- error announcement,
+- zoom/reflow behavior,
+- meaningful labels and instructions.
 
-### 8.5 Anti‑Patterns
-- Manual config changes
-- Environment drift
-- Hardcoded environment values
+### Release decision
+Critical blockers in essential user journeys should be treated as release risk, particularly where accessibility obligations apply.
+
+### Anti-patterns
+- equating zero axe violations with full compliance,
+- accessibility testing only at the end,
+- ignoring design-system/component accessibility.
 
 ---
 
-## 9. Backup & Disaster Recovery
+## 7. Observability as a Quality Attribute
 
-### 9.1 Purpose
-Ensure the system can recover from catastrophic failures.
+### Objective
+Ensure production and test environments provide enough evidence to detect, diagnose, and correlate failures.
 
-### 9.2 Scope
-- Backup validation
-- Restore validation
-- Failover testing
-- RPO/RTO validation
+### Required capabilities for critical distributed flows
+- structured logs,
+- correlation/trace IDs,
+- meaningful metrics,
+- distributed traces where appropriate,
+- actionable alerts,
+- sensitive-data masking.
 
-### 9.3 Coverage Expectations
-- All critical data backed up
-- Restore tested quarterly
-- Failover tested at least once per release cycle
+### Testability checks
+Tests can validate that:
 
-### 9.4 Best Practices
-- Automate backup verification
-- Validate data integrity after restore
-- Test failover under load
+- correlation IDs propagate,
+- expected logs/metrics are emitted,
+- failures produce actionable diagnostics,
+- alerts trigger under defined conditions,
+- telemetry does not expose secrets/PII.
 
-### 9.5 Anti‑Patterns
-- Assuming backups work without testing
-- No restore drills
-- No monitoring for backup failures
-
----
-
-## 10. Mobile Testing
-
-### 10.1 Purpose
-Validate mobile web and native app behavior.
-
-### 10.2 Scope
-- Mobile UI flows
-- Responsive design
-- Device compatibility
-- Network throttling
-
-### 10.3 Coverage Expectations
-- All critical flows tested on mobile
-- At least one real device + emulators
-
-### 10.4 Best Practices
-- Use Appium for native apps
-- Use BrowserStack/Sauce Labs for device coverage
-- Validate performance under throttled networks
-
-### 10.5 Anti‑Patterns
-- Testing only on desktop
-- Ignoring device fragmentation
-- No network condition testing
+### Architect principle
+A system that cannot explain its failures is difficult to test and risky to operate. Observability requirements should therefore be reviewed during solution design.
 
 ---
 
-## 11. i18n & Localization
+## 8. Test Data, Privacy, and Compliance
 
-### 11.1 Purpose
-Ensure the application supports multiple languages and regions.
+### Objective
+Provide reliable test data without creating unnecessary privacy or regulatory risk.
 
-### 11.2 Scope
-- Translations
-- Date/time formats
-- Currency formats
-- RTL support (if applicable)
+### Principles
+- prefer synthetic data,
+- mask/anonymize production-derived data,
+- restrict sensitive fields,
+- define retention and cleanup,
+- maintain deterministic datasets for critical regression,
+- avoid shared mutable records during parallel execution.
 
-### 11.3 Coverage Expectations
-- All supported languages validated
-- All locale-specific formats validated
+### Governance
+Any use of production data outside production requires explicit policy approval and controls appropriate to the data classification.
 
-### 11.4 Best Practices
-- Use translation keys, not hardcoded text
-- Validate UI layout for long strings
-- Validate locale-specific sorting
-
-### 11.5 Anti‑Patterns
-- Hardcoded strings
-- Ignoring RTL layouts
-- No locale testing in CI
+### Anti-patterns
+- copying production databases into QA by default,
+- credentials/PII in source control or logs,
+- test data with no ownership or lifecycle.
 
 ---
 
-## 12. AI/ML Model Testing
+## 9. Environment and Configuration Quality
 
-### 12.1 Purpose
-Validate correctness, fairness, and reliability of machine learning models.
+### Objective
+Detect configuration drift and deployment defects before they appear as product failures.
 
-### 12.2 Scope
-- Model accuracy
-- Bias detection
-- Drift detection
-- Input validation
-- Explainability
+### Validation areas
+- required configuration values,
+- feature flags,
+- secrets injection,
+- dependency endpoints,
+- version compatibility,
+- infrastructure/environment readiness.
 
-### 12.3 Coverage Expectations
-- Baseline accuracy validated
-- Drift monitored continuously
-- Bias tested for all protected attributes
+### Practices
+- configuration schema validation,
+- startup/preflight checks,
+- deployment smoke tests,
+- environment parity monitoring,
+- immutable/config-as-code approaches where practical.
 
-### 12.4 Best Practices
-- Use shadow deployments
-- Validate model outputs against golden datasets
-- Use explainability tools (SHAP, LIME)
+A failed test caused by environment drift should not simply be classified as “QA instability”; recurring environment failures require an owned engineering action.
 
-### 12.5 Anti‑Patterns
-- Blind trust in model predictions
-- No drift monitoring
-- No fairness testing
+---
 
+## 10. Backup, Restore, and Disaster Recovery
 
+### Objective
+Prove that critical services and data can recover within business expectations.
+
+### Required definitions
+- **RPO** — acceptable data-loss window.
+- **RTO** — acceptable recovery-time window.
+
+### Evidence
+- successful restore,
+- data integrity after restore,
+- failover behavior,
+- application dependency recovery,
+- operational runbook effectiveness.
+
+Backups are not considered validated until restore capability has been tested.
+
+---
+
+## 11. Mobile and Compatibility Testing
+
+Compatibility depth should be based on supported-user telemetry and business commitments rather than testing every possible device/browser combination.
+
+Prioritize:
+
+- supported browser/device matrix,
+- critical customer segments,
+- responsive behavior,
+- network constraints,
+- OS/browser-specific risk.
+
+Cloud device farms and emulators provide breadth; real devices provide targeted confidence for critical combinations.
+
+---
+
+## 12. Localization and Internationalization
+
+Where applicable, validate:
+
+- locale-specific formatting,
+- time zones,
+- currency/number rules,
+- translation behavior,
+- text expansion,
+- RTL layout,
+- sorting/search behavior,
+- encoding.
+
+Localization risk should be tied to supported markets rather than treated as a generic checklist.
+
+---
+
+## 13. AI/ML and AI-Assisted System Quality
+
+### Model/system risks
+When testing AI/ML capabilities, consider:
+
+- input validation,
+- quality/accuracy against agreed evaluation data,
+- drift,
+- bias/fairness where applicable,
+- explainability requirements,
+- non-determinism,
+- prompt/instruction robustness,
+- security/privacy of model inputs and outputs.
+
+### GenAI-specific principle
+A deterministic pass/fail oracle may not exist for every output. Evaluation may require golden datasets, scoring rubrics, semantic similarity, human review, or statistical acceptance criteria.
+
+### AI-assisted testing guardrails
+GenAI may accelerate:
+
+- test design,
+- script drafts,
+- test-data generation,
+- log summarization,
+- failure triage.
+
+However:
+
+- AI-generated tests require review,
+- deterministic test evidence remains authoritative,
+- sensitive data must not be sent to unapproved services,
+- hallucinated analysis must not automatically approve releases.
+
+---
+
+## 14. NFR Ownership Matrix
+
+| Area | Primary Engineering Owner | QE Role | Release Evidence |
+|---|---|---|---|
+| Security | Dev/Security | risk scenarios, automation, evidence | vulnerability/auth results |
+| Performance | Dev/Platform/Performance | workload validation, gates | latency/throughput/resource trends |
+| Resilience | Architecture/SRE/Dev | scenario design and validation | recovery/degradation evidence |
+| Accessibility | Product/Design/Dev | automated + workflow validation | violation/critical-flow status |
+| Observability | Dev/SRE | test telemetry behavior | logs/traces/alerts |
+| DR/Recovery | Platform/SRE | validate business recovery | RPO/RTO/restore results |
+
+Quality is shared ownership; QE coordinates evidence but does not own every underlying quality attribute alone.
+
+---
+
+## 15. NFR Release Readiness
+
+Non-functional evidence feeds the same release decision model as functional testing.
+
+### GO
+- critical NFR expectations met,
+- no unacceptable security/reliability risk,
+- meaningful regressions understood,
+- monitoring/rollback capability ready.
+
+### CONDITIONAL GO
+- known bounded deviation,
+- business/technical owner accepts residual risk,
+- mitigation and monitoring defined,
+- remediation date assigned.
+
+### NO-GO
+Examples include:
+- critical exploitable security issue,
+- severe performance regression on critical workflow,
+- data-loss/recovery risk outside agreed tolerance,
+- resilience failure likely to cascade,
+- critical accessibility blocker where release policy requires compliance.
+
+See `Release-Readiness.md` for the overall governance model.
+
+---
+
+## 16. What Not to Do
+
+Avoid treating advanced testing as a collection of tools.
+
+The architecture question is not:
+
+> “Do we use JMeter, axe, OWASP ZAP, or Chaos Mesh?”
+
+The better questions are:
+
+1. Which non-functional failure would materially hurt the business or user?
+2. What measurable expectation applies?
+3. Where can we detect the risk earliest?
+4. Who owns remediation?
+5. What evidence is required before release?
+6. What will production monitoring detect if the risk escapes?
+
+This keeps non-functional quality connected to engineering and business decisions rather than checklist completion.
