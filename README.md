@@ -15,9 +15,9 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/github/stars/GitHubMaster07/Test-Strategy-Blueprint?style=flat&color=yellow" />
-  <img src="https://img.shields.io/github/forks/GitHubMaster07/Test-Strategy-Blueprint?style=flat&color=lightgrey" />
-  <img src="https://img.shields.io/github/issues/GitHubMaster07/Test-Strategy-Blueprint?style=flat&color=orange" />
+  <img src="https://img.shields.io/github/stars/GitHubMaster07/Enterprise-Test-Strategy-Blueprint?style=flat&color=yellow" />
+  <img src="https://img.shields.io/github/forks/GitHubMaster07/Enterprise-Test-Strategy-Blueprint?style=flat&color=lightgrey" />
+  <img src="https://img.shields.io/github/issues/GitHubMaster07/Enterprise-Test-Strategy-Blueprint?style=flat&color=orange" />
 </p>
 
 <h1 align="center">🚀 Enterprise Test Strategy Blueprint</h1>
@@ -69,7 +69,21 @@ The blueprint is built for organizations using Java‑based automation with:
 - Pact  
 - Kafka/SQS  
 
-It serves as the **single source of truth** for how quality is engineered, validated, and governed across the entire system.
+It serves as a **decision-oriented Quality Engineering reference** for how risk is assessed, coverage is selected, automation investment is prioritized, and release readiness is communicated across the system.
+
+---
+
+## 🧭 What This Blueprint Demonstrates
+This repository is designed as a **Test Architect / Senior Quality Engineering portfolio artifact**, not only as an automation-tool catalog. It demonstrates how to:
+
+- Prioritize testing using a **risk-based model**
+- Decide **what to automate and what not to automate**
+- Select the right test layer for each risk
+- Define maintainable automation and framework governance
+- Integrate quality evidence into **CI/CD quality gates**
+- Evaluate **GO / CONDITIONAL GO / NO-GO** release readiness
+- Track metrics that support decisions instead of vanity metrics
+- Make residual risk, ownership, and escalation explicit
 
 ---
 
@@ -78,7 +92,7 @@ The Quality Engineering vision is based on five core principles:
 
 1. **Shift‑Left Testing** — validate early using contracts, schemas, mocks, and virtualization.  
 2. **Layered Test Coverage** — each layer validates what it is best suited for.  
-3. **Automation‑First Mindset** — every repeatable scenario is automated.  
+3. **Risk-Based Automation** — automate where repeatability, risk reduction, and feedback value justify implementation and maintenance cost.
 4. **Scalability & Maintainability** — modular architecture, parallel execution, clean abstractions.  
 5. **Enterprise‑Grade Governance** — traceability, auditability, compliance, and secure data handling.
 
@@ -208,23 +222,31 @@ mvn clean test -Dsuite=regression
 ## 📚 Documentation Index
 All detailed documentation is located in the `docs/` directory:
 
-- **Test Strategy** → [docs/Test-Strategy.md](https://github.com/GitHubMaster07/Enterprise-Test-Strategy-Blueprint/blob/main/docs/Test-Strategy.md)  
-- **Framework Architecture** → [docs/Framework-Architecture.md](https://github.com/GitHubMaster07/Enterprise-Test-Strategy-Blueprint/blob/main/docs/Framework-Architecture.md)  
-- **Test Layers** → [docs/Test-Layers.md](https://github.com/GitHubMaster07/Enterprise-Test-Strategy-Blueprint/blob/main/docs/Test-Layers.md)  
-- **Advanced Testing (NFR)** → [docs/Advanced-Testing.md](https://github.com/GitHubMaster07/Enterprise-Test-Strategy-Blueprint/blob/main/docs/Advanced-Testing.md)  
-- **CI/CD** → [docs/CI-CD.md](https://github.com/GitHubMaster07/Enterprise-Test-Strategy-Blueprint/blob/main/docs/CI-CD.md)  
-- **Examples** → [docs/Examples/](https://github.com/GitHubMaster07/Enterprise-Test-Strategy-Blueprint/tree/main/docs/Examples)  
+### Strategy & Decisioning
+- **Enterprise Test Strategy** → [docs/Test-Strategy.md](./docs/Test-Strategy.md)
+- **Risk-Based Testing** → [docs/Risk-Based-Testing.md](./docs/Risk-Based-Testing.md)
+- **Automation Decision Framework** → [docs/Automation-Decision-Framework.md](./docs/Automation-Decision-Framework.md)
+- **Release Readiness / Go-No-Go** → [docs/Release-Readiness.md](./docs/Release-Readiness.md)
+- **Quality Metrics** → [docs/Quality-Metrics.md](./docs/Quality-Metrics.md)
+
+### Architecture & Execution
+- **Framework Architecture** → [docs/Framework-Architecture.md](./docs/Framework-Architecture.md)
+- **Test Layers** → [docs/Test-Layers.md](./docs/Test-Layers.md)
+- **Advanced Testing / NFR** → [docs/Advanced-Testing.md](./docs/Advanced-Testing.md)
+- **CI/CD & Quality Gates** → [docs/CI-CD.md](./docs/CI-CD.md)
 
 ---
 
 ## 🏁 Purpose of This Repository
 This blueprint provides:
 
-- A unified automation architecture  
-- A complete testing strategy across all layers  
-- Enterprise‑level governance and compliance  
-- A CI/CD‑ready execution model  
-- A scalable foundation for multi‑team collaboration  
+- A **risk-based testing and prioritization model**
+- An **automation decision framework** for what to automate and what not to automate
+- A unified multi-layer automation architecture
+- **GO / CONDITIONAL GO / NO-GO** release-readiness guidance
+- Decision-oriented quality metrics and governance
+- CI/CD quality gates with explicit evidence and failure handling
+- A scalable foundation for multi-team quality ownership
 
 It is intended for:
 

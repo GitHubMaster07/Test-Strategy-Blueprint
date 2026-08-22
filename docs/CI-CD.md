@@ -2,7 +2,7 @@
 
 This document defines the CI/CD pipeline architecture, execution flow, quality gates, parallelization strategy, artifact management, and failure handling model for automated testing.
 
-The goal is to ensure deterministic, fast, scalable, and audit‑ready test execution across all environments.
+The goal is to ensure deterministic, fast, scalable, and audit-ready test execution while producing evidence that supports risk-based release decisions.
 
 ---
 
@@ -161,11 +161,16 @@ v
 | Contract Verification | All providers verified |
 | Schema Validation | No drift detected |
 
-### 4.3 Production Deployment Gates
-- All CI pipelines green
-- No open critical defects
-- All evidence archived
-- Rollback plan validated
+### 4.3 Production Deployment Decision Inputs
+- Critical business flows have acceptable evidence
+- No unaccepted critical defects or security findings
+- Contract/schema compatibility is confirmed
+- Known test failures are classified; flaky/infra failures do not hide product risk
+- Performance is within agreed SLO/SLA tolerance where applicable
+- Required evidence is archived
+- Observability and rollback/recovery controls are ready
+
+> A green pipeline is necessary evidence, but it is not sufficient by itself to approve a high-risk release. Use the [Release Readiness Framework](./Release-Readiness.md) to classify the recommendation as **GO**, **CONDITIONAL GO**, or **NO-GO**.
 
 ---
 
@@ -232,3 +237,35 @@ v
 - GitHub PR status checks
 
 
+
+---
+
+## 7. Risk-Based Pipeline Selection
+
+Not every change requires every suite. Pipeline depth should reflect change risk.
+
+| Change Type | Minimum Recommended Evidence |
+|---|---|
+| Documentation / non-runtime change | Static checks |
+| Isolated low-risk service change | Unit + relevant API/component tests |
+| API/schema change | Unit + API + schema + contract + integration |
+| Critical user-flow change | Unit + API/integration + targeted UI smoke/E2E |
+| Data migration/transformation | API/integration + DB reconciliation + rollback validation |
+| Auth/security-sensitive change | API + authorization/security checks + critical UI flow |
+| High-risk release | Full risk-selected regression + NFR evidence + release-readiness review |
+
+This approach avoids running expensive suites without purpose while ensuring high-risk changes receive deeper evidence.
+
+---
+
+## 8. Quality Gate Exception Policy
+
+A gate may be overridden only when the organization explicitly accepts the residual risk. The exception record should include:
+- Failed/waived gate
+- Root cause or known limitation
+- Business impact
+- Mitigation and monitoring
+- Named approver / risk owner
+- Expiration or follow-up date
+
+Exceptions must not become a mechanism for normalizing flaky tests or bypassing unresolved critical risk.
