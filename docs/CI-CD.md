@@ -218,11 +218,11 @@ v
 - Flaky test
 
 ### 6.3 Failure Triage Workflow
-1. Analyze logs, screenshots, payloads  
-2. Categorize failure  
-3. Assign owner (QA, Dev, DevOps)  
-4. Create defect (if applicable)  
-5. Add evidence to Allure  
+1. Analyze logs, screenshots, payloads
+2. Categorize failure
+3. Assign owner (QA, Dev, DevOps)
+4. Create defect (if applicable)
+5. Add evidence to Allure
 
 ### 6.4 CI/CD Failure Rules
 - Pipeline fails immediately on:
