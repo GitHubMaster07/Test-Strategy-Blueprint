@@ -1,365 +1,394 @@
 # Framework Architecture
 
-## 1. Architecture Overview
+## 1. Purpose
 
-The automation framework provides a unified, scalable, and maintainable architecture for validating a modern distributed system across UI, API, database, event-driven, and contract layers.
+This document defines the architecture principles, boundaries, and decision rules for an enterprise test automation platform that validates UI, API, database, event-driven, contract, and integration risks.
 
-### Key Design Goals
-- High maintainability through modular design.
-- Deterministic, reproducible, environment‑agnostic execution.
-- Full compatibility with CI/CD pipelines.
-- Thread‑safe parallel execution.
-- Clear separation of concerns across layers.
-- Extensibility for new services, domains, and test types.
-
-### Supported Testing Domains
-- UI (Selenium WebDriver)
-- API (RestAssured)
-- Database (JDBC)
-- Event-driven (Kafka/SQS)
-- Contract testing (Pact)
-- Service virtualization (WireMock)
+The framework is not treated as a collection of test utilities. It is a **quality engineering platform** designed to provide fast feedback, reliable evidence, maintainable automation, and reusable capabilities across multiple teams.
 
 ---
 
-## 2. Core Design Principles
+## 2. Architecture Goals
 
-### 2.1 Single Responsibility Principle (SRP)
-Each class has one purpose:
-- Page classes → UI interactions  
-- API clients → HTTP operations  
-- DB utilities → SQL execution  
-- Step definitions → orchestration only  
+The architecture optimizes for:
 
-### 2.2 Separation of Concerns (SoC)
-- UI, API, DB, events, and contracts are isolated into independent layers.
-- No cross-layer leakage (e.g., no SQL in UI tests).
+- **Fast feedback** at the cheapest reliable test layer.
+- **Maintainability** through clear boundaries and reusable abstractions.
+- **Deterministic execution** with isolated state and controlled data.
+- **Observability** so failures can be diagnosed without rerunning tests manually.
+- **Scalability** across services, teams, environments, and CI/CD pipelines.
+- **Governance** through common standards without blocking team autonomy.
+- **Testability** as a product architecture concern, not only a QA concern.
 
-### 2.3 No Business Logic in Step Definitions
-StepDefs only orchestrate:
-- Page actions  
-- API calls  
-- DB validations  
-- Event checks  
-
-### 2.4 Thread Safety
-All parallel execution uses:
-- ThreadLocal WebDriver  
-- ThreadLocal API clients  
-- ThreadLocal DB connections  
-
-### 2.5 Environment-Agnostic Execution
-All environment variables come from:
-- config.properties  
-- Maven profiles  
-- CI/CD secrets  
-
-### 2.6 Deterministic Test Behavior
-- No randomness without seed  
-- No shared state  
-- No time-dependent tests  
+The architecture does **not** optimize for maximum test count, maximum abstraction, or automation percentage for its own sake.
 
 ---
 
-## 3. Project Structure
+## 3. Architecture Decision Principles
 
+### 3.1 Test at the Lowest Reliable Layer
+
+Validate a behavior at the lowest layer that can provide trustworthy evidence.
+
+Examples:
+
+- Business rule → unit/API layer.
+- Service compatibility → contract layer.
+- Persistence rule → API + DB validation.
+- Critical customer journey → limited E2E/UI validation.
+
+Duplicating the same assertion across UI, API, and DB is avoided unless each layer protects a different risk.
+
+### 3.2 Separate Domain Intent from Tooling
+
+Business intent must not depend directly on Selenium, RestAssured, JDBC, Pact, or Kafka client APIs.
+
+Tests should express intent through domain-focused clients, page objects, validators, and builders. This reduces migration cost when tools or implementations change.
+
+### 3.3 Keep Orchestration Thin
+
+Cucumber step definitions, test methods, and runners orchestrate behavior. They do not contain business logic, SQL construction, HTTP plumbing, or complex retry logic.
+
+### 3.4 Prefer Explicit Boundaries over Generic Abstractions
+
+A small amount of duplication is preferable to an abstraction that hides domain behavior or creates coupling between unrelated services.
+
+A new abstraction is justified when it:
+
+1. removes repeated infrastructure behavior,
+2. improves diagnostics or consistency, and
+3. can be understood without tracing multiple inheritance or utility layers.
+
+### 3.5 Design for Failure Diagnosis
+
+Every automated test should make failure investigation cheaper. Diagnostic evidence should be captured automatically where practical:
+
+- request/response details,
+- screenshots,
+- correlation IDs,
+- event payloads,
+- SQL/query evidence,
+- environment metadata,
+- retry/flakiness classification.
+
+---
+
+## 4. Architecture Boundaries
+
+| Layer | Owns | Must Not Own |
+|---|---|---|
+| UI/Page layer | user interactions, locators, UI state | API calls, DB queries, release logic |
+| API client layer | HTTP operations, serialization, service endpoints | test assertions unrelated to protocol/domain |
+| DB validation layer | read-only queries, data assertions, reconciliation | test setup that bypasses business workflows |
+| Event layer | publish/consume, schema, ordering, idempotency checks | hidden business orchestration |
+| Contract layer | consumer/provider compatibility | full integration behavior |
+| Test orchestration | scenario intent and cross-layer sequence | low-level framework implementation |
+| CI/CD layer | suite selection, gates, artifacts, execution policy | product business logic |
+
+Cross-layer interaction is allowed when the scenario requires it, but implementation details remain inside their owning layer.
+
+---
+
+## 5. Reference Architecture
+
+```text
+                         +-----------------------------+
+                         |       CI/CD & Governance     |
+                         | Gates • Evidence • Policies  |
+                         +---------------+-------------+
+                                         |
+                 +-----------------------+-----------------------+
+                 |                                               |
+                 v                                               v
+       +----------------------+                      +----------------------+
+       | Test Orchestration   |                      | Observability Hooks  |
+       | TestNG / Cucumber    |                      | Logs / Traces / Data |
+       +----------+-----------+                      +----------+-----------+
+                  |                                                 |
+      +-----------+------------+------------+------------+-----------+
+      |                        |            |            |           |
+      v                        v            v            v           v
++-----------+            +-----------+ +---------+ +---------+ +-----------+
+| UI Layer  |            | API Layer | | DB      | | Events  | | Contracts |
+| Selenium  |            |RestAssured| | JDBC    | |Kafka/SQS| | Pact      |
++-----------+            +-----------+ +---------+ +---------+ +-----------+
+      |                        |            |            |           |
+      +------------------------+------------+------------+-----------+
+                               |
+                               v
+                    +-----------------------+
+                    | System Under Test     |
+                    | + Virtualized Deps    |
+                    +-----------------------+
 ```
+
+WireMock and other virtualization tools sit at dependency boundaries and are used when control, repeatability, fault injection, or isolation provides more value than using a live dependency.
+
+---
+
+## 6. Core Components
+
+### 6.1 UI Layer
+
+**Responsibilities**
+- Page/component interactions.
+- Stable locator strategy.
+- Synchronization and browser lifecycle.
+- Failure screenshots and browser diagnostics.
+
+**Design decisions**
+- Page Objects expose user-oriented actions rather than raw locators.
+- Assertions remain in test/validation layers unless a component-specific invariant clearly belongs with the component.
+- `data-testid`/stable semantic selectors are preferred over brittle DOM paths.
+
+**Do not** build generic “click anything” wrappers that hide meaningful UI intent.
+
+### 6.2 API Layer
+
+**Responsibilities**
+- Service-specific clients.
+- Request specifications and authentication.
+- Serialization/deserialization.
+- Schema/contract helpers.
+- Request/response diagnostics.
+
+**Design decisions**
+- One client per bounded service/domain rather than one global API utility.
+- Payload builders model valid defaults and explicit overrides.
+- Negative tests remain readable and do not depend on hidden mutation helpers.
+
+### 6.3 Database Layer
+
+**Responsibilities**
+- Parameterized read-only queries.
+- Source-to-target and persistence validation.
+- Reusable data validators.
+- Connection lifecycle.
+
+**Decision rule**
+Use DB validation when data state itself is the risk. Do not use direct DB writes to bypass behavior that should be validated through supported product interfaces.
+
+### 6.4 Event Layer
+
+**Responsibilities**
+- Event production/consumption.
+- Schema compatibility.
+- Ordering, retries, idempotency, and DLQ behavior.
+- Correlation across asynchronous workflows.
+
+Tests must use bounded polling with diagnostic timeouts rather than arbitrary sleeps.
+
+### 6.5 Contract Layer
+
+**Responsibilities**
+- Consumer/provider expectations.
+- Compatibility verification.
+- Breaking-change detection before integration.
+
+Contract tests reduce—not replace—integration testing.
+
+### 6.6 Service Virtualization
+
+Use WireMock or equivalent when:
+
+- dependency availability is unreliable,
+- deterministic negative behavior is required,
+- latency/fault scenarios must be injected,
+- third-party cost or rate limits make live execution inefficient.
+
+Do not virtualize a dependency when the integration itself is the primary risk being validated.
+
+---
+
+## 7. Configuration and Secrets
+
+Configuration precedence should be explicit and predictable:
+
+1. repository-safe defaults,
+2. environment profile,
+3. runtime/system properties,
+4. CI/CD secret injection.
+
+Secrets are never committed to source control or embedded in test data. Environment configuration should fail fast when required values are missing.
+
+---
+
+## 8. Test Data Architecture
+
+Test data is treated as a first-class dependency.
+
+### Principles
+- Deterministic where repeatability matters.
+- Unique where parallel isolation matters.
+- Synthetic or masked where privacy/compliance matters.
+- Created through supported APIs/services when possible.
+- Cleaned up only when cleanup is safe and necessary.
+
+### Builders and Factories
+Builders provide valid defaults; factories represent domain-specific creation strategies. Random values must be seedable or logged so failures can be reproduced.
+
+---
+
+## 9. Parallel Execution and Isolation
+
+Parallelism is enabled only when isolation can be guaranteed.
+
+Required controls may include:
+
+- isolated browser instances,
+- unique test identities/data,
+- independent API/session state,
+- safe DB connections,
+- correlation IDs for async flows,
+- no mutable global state.
+
+Increasing thread count is not considered a performance optimization if it increases flakiness or environment contention.
+
+---
+
+## 10. Observability by Design
+
+A mature framework should answer **why a test failed** without requiring an immediate rerun.
+
+Minimum evidence for failed critical tests should include relevant combinations of:
+
+- test/environment/build identifiers,
+- screenshots or video where useful,
+- API request/response payloads with secrets masked,
+- correlation/trace IDs,
+- event payloads and timestamps,
+- DB validation evidence,
+- failure category and retry status.
+
+Observability is part of framework architecture, not an afterthought added to reporting.
+
+---
+
+## 11. Retry and Flakiness Policy
+
+Retries are not used to convert unreliable tests into green pipelines.
+
+A retry may be allowed when:
+
+- the failure category is known and transient,
+- maximum retry count is controlled,
+- the original failure remains visible,
+- retry metrics feed a flakiness backlog.
+
+A test that regularly requires retries is treated as a defect in the test, environment, or product dependency.
+
+---
+
+## 12. Extensibility Decision Framework
+
+Before adding a new library, framework layer, or shared utility, ask:
+
+1. What risk or capability is currently unsupported?
+2. Can an existing component solve it adequately?
+3. What maintenance cost does the new dependency introduce?
+4. Will multiple teams genuinely reuse it?
+5. How will it be observed, versioned, and supported?
+6. What is the exit/migration strategy if the tool changes?
+
+A framework should become broader only when the additional complexity produces measurable quality or delivery value.
+
+---
+
+## 13. Architecture Trade-Offs
+
+| Decision | Benefit | Cost / Risk | Default Position |
+|---|---|---|---|
+| Heavy UI automation | user-level confidence | slow, brittle, expensive | keep limited to critical journeys |
+| Generic shared utilities | less duplication | hidden coupling | prefer domain-specific abstractions |
+| Live third-party dependencies | realism | instability, cost | virtualize unless integration risk is primary |
+| Aggressive parallelism | faster execution | contention/flakiness | scale after isolation is proven |
+| Automatic retries | pipeline resilience | masks defects | max 1 for classified transient failures |
+| One framework for every team | consistency | central bottleneck | shared standards + modular ownership |
+
+---
+
+## 14. Framework Ownership Model
+
+A central QA/enablement function may define guardrails, templates, and shared infrastructure, but product teams remain responsible for the quality of their automation.
+
+**Central ownership**
+- architecture standards,
+- reusable infrastructure,
+- CI/CD integration patterns,
+- observability conventions,
+- upgrade/deprecation guidance.
+
+**Team ownership**
+- domain test coverage,
+- test maintenance,
+- failure triage,
+- data quality,
+- adherence to agreed gates.
+
+This prevents the framework team from becoming the only group capable of maintaining automation.
+
+---
+
+## 15. Architecture Anti-Patterns
+
+Avoid:
+
+- one giant `BaseTest` with unrelated responsibilities,
+- utility classes that hide domain intent,
+- assertions inside low-level transport helpers,
+- SQL embedded throughout test methods,
+- shared mutable test data,
+- sleeps used as synchronization,
+- broad retries with no failure classification,
+- duplicate assertions across every layer,
+- tool adoption without a defined problem,
+- a framework that only its original author can understand.
+
+---
+
+## 16. Architecture Review Triggers
+
+Revisit the architecture when any of the following occurs:
+
+- flakiness exceeds agreed thresholds,
+- feedback time threatens delivery cadence,
+- multiple teams create competing abstractions,
+- a new architecture style is introduced (events, streaming, mobile, AI/ML),
+- test maintenance cost grows faster than product change,
+- incidents expose observability or coverage gaps,
+- CI/CD constraints require different execution strategies.
+
+Architecture is therefore governed as an evolving capability, not a one-time framework setup.
+
+---
+
+## 17. Example Project Structure
+
+```text
 java-selenium-bdd-framework/
 ├── src/
-│   ├── main/java/
-│   │   └── core/
-│   │       ├── driver/              # DriverFactory, WebDriverManager, ThreadLocal driver
-│   │       ├── config/              # ConfigReader, Environment loader
-│   │       ├── utils/               # Common utilities (waits, logging, random data)
-│   │       └── api/                 # API client base classes
+│   ├── main/java/core/
+│   │   ├── driver/
+│   │   ├── config/
+│   │   ├── observability/
+│   │   └── api/
 │   ├── test/java/
-│   │   ├── pages/                   # Page Object Model (POM) classes
-│   │   ├── api/                     # RestAssured clients, endpoints, payload builders
-│   │   ├── db/                      # JDBC connectors, queries, DB validators
-│   │   ├── events/                  # Kafka/SQS consumers, event validators
-│   │   ├── contracts/               # Pact consumer tests
-│   │   ├── stepdefs/                # Cucumber Step Definitions
-│   │   ├── hooks/                   # Before/After hooks (screenshots, cleanup)
-│   │   └── runners/                 # TestNG runners (parallel, smoke, regression)
+│   │   ├── pages/
+│   │   ├── api/
+│   │   ├── db/
+│   │   ├── events/
+│   │   ├── contracts/
+│   │   ├── stepdefs/
+│   │   ├── hooks/
+│   │   └── runners/
 │   └── test/resources/
-│       ├── features/                # Gherkin feature files
-│       ├── schemas/                 # JSON schemas for API validation
-│       ├── pact/                    # Pact contracts
-│       ├── testdata/                # Environment-specific test data
-│       └── config.properties         # Global configuration
-├── pom.xml                           # Maven dependencies & plugins
-├── .gitignore                       # Excludes target/, logs/, allure-results/
-└── .gitattributes                   # Ensures Java language detection
+│       ├── features/
+│       ├── schemas/
+│       ├── pact/
+│       └── testdata/
+├── pom.xml
+├── .gitignore
+└── .gitattributes
 ```
 
----
-
-## 4. Configuration & Environment Management
-
-### 4.1 Configuration Sources
-- `config.properties` (default values)
-- Maven profiles (`-Plocal`, `-Pqa`, `-Pstaging`)
-- System properties (`-Denv=qa`)
-- CI/CD secrets (GitHub Actions, Jenkins)
-
-### 4.2 Environment Variables
-- Base URLs  
-- Browser settings  
-- Timeouts  
-- API tokens (injected at runtime)  
-- DB connection strings  
-
-### 4.3 Secrets Management
-- Never stored in repo  
-- Injected via CI/CD  
-- Access controlled  
-
----
-
-## 5. UI Architecture (Selenium + POM)
-
-### 5.1 Page Object Model
-- Each page = one class  
-- No assertions inside pages  
-- Only UI interactions  
-
-### 5.2 BasePage
-- Click, type, getText, waits  
-- Scroll, visibility checks  
-- ThreadLocal WebDriver  
-
-### 5.3 DriverFactory
-- Creates driver per thread  
-- Supports Chrome, Firefox, Edge  
-- Supports Grid/Selenoid  
-
-### 5.4 Example Page Object
-(Already provided in your earlier content — included in final file)
-
----
-
-## 6. API Architecture (RestAssured)
-
-### 6.1 BaseApi Client
-- Builds request specification  
-- Injects base URL  
-- Handles logging  
-- Sets content type  
-
-### 6.2 API Clients
-- One class per service  
-- No hardcoded URLs  
-- Payload builders  
-- Schema validation  
-
-### 6.3 Example API Client
-(Already provided — included in final file)
-
----
-
-## 7. Database Architecture (JDBC)
-
-### 7.1 ThreadLocal Connections
-- One connection per thread  
-- Auto-close after scenario  
-
-### 7.2 Query Execution
-- Parameterized queries  
-- SQL injection safe  
-- Reusable validators  
-
-### 7.3 Example DB Validator
-(Already provided)
-
----
-
-## 8. Event Testing Architecture (Kafka/SQS)
-
-### 8.1 Event Consumers
-- Thread-safe consumer wrapper  
-- Polling with timeout  
-- Offset management  
-
-### 8.2 Schema Validation
-- Avro/JSON schema registry  
-- Backward compatibility rules  
-
-### 8.3 DLQ Validation
-- Dead Letter Queue checks  
-- Poison message detection  
-
-### 8.4 Example Event Validator
-(Already provided)
-
----
-
-## 9. Contract Testing Architecture (Pact)
-
-### 9.1 Consumer-Driven Contracts
-- Pact consumer tests  
-- Contract generation  
-
-### 9.2 Pact Broker Integration
-- Publish contracts  
-- Retrieve provider versions  
-
-### 9.3 Provider Verification
-- CI pipeline verifies provider  
-- Backward compatibility enforced  
-
-### 9.4 Versioning Rules
-- No breaking changes without version bump  
-
----
-
-## 10. Service Virtualization (WireMock)
-
-### 10.1 Stub Server
-- Local WireMock instance  
-- Dynamic stubs  
-- Fault injection  
-
-### 10.2 Use Cases
-- Unstable dependencies  
-- Negative scenarios  
-- Performance isolation  
-
----
-
-## 11. Test Data Layer
-
-### 11.1 Data Builders
-- Fluent builders for payloads  
-- Reusable across tests  
-
-### 11.2 Factories
-- UserFactory  
-- BookingFactory  
-- EventFactory  
-
-### 11.3 Synthetic Data
-- Randomized but deterministic  
-- Seed-based generation  
-
----
-
-## 12. Observability Hooks
-
-### 12.1 Logging
-- SLF4J + Logback  
-- Request/response logs  
-- DB query logs  
-
-### 12.2 Artifacts
-- Screenshots  
-- API payloads  
-- Event payloads  
-
-### 12.3 Metrics (optional)
-- Test duration  
-- Retry count  
-- Failure categories  
-
----
-
-## 13. Parallel Execution Model
-
-### 13.1 TestNG Parallelism
-- Parallel by classes  
-- Parallel by methods  
-- Parallel suites  
-
-### 13.2 Thread Isolation
-- ThreadLocal drivers  
-- ThreadLocal API clients  
-- ThreadLocal DB connections  
-
-### 13.3 CI/CD Parallel Matrix
-- Browser matrix  
-- Environment matrix  
-- Sharded test suites  
-
----
-
-## 14. Error Handling & Retry Strategy
-
-### 14.1 RetryAnalyzer
-- Retries only for known flaky categories  
-- Max retry = 1  
-
-### 14.2 Exception Wrapping
-- Custom exceptions for clarity  
-- Root cause preservation  
-
-### 14.3 Failure Triage
-- Categorize failures  
-- Auto-attach logs and screenshots  
-
----
-
-## 15. Reporting Architecture
-
-### 15.1 Allure Report
-- Steps  
-- Attachments  
-- History  
-- Categories  
-
-### 15.2 Cucumber HTML
-- Lightweight summary  
-
-### 15.3 CI/CD Artifacts
-- Logs  
-- Screenshots  
-- Videos (if enabled)  
-
----
-
-## 16. Extensibility Model
-
-### 16.1 Adding New Services
-- Create new API client  
-- Add schema  
-- Add validators  
-
-### 16.2 Adding New Test Types
-- Add new layer folder  
-- Add utilities  
-- Add runners  
-
-### 16.3 Plugin Architecture
-- Reusable modules  
-- Shared utilities  
-
----
-
-## 17. Final Consolidated Folder Structure
-```
-java-selenium-bdd-framework/
-├── src/
-│   ├── main/java/
-│   │   └── core/
-│   │       ├── driver/              # DriverFactory, WebDriverManager, ThreadLocal driver
-│   │       ├── config/              # ConfigReader, Environment loader
-│   │       ├── utils/               # Common utilities (waits, logging, random data)
-│   │       └── api/                 # API client base classes
-│   ├── test/java/
-│   │   ├── pages/                   # Page Object Model (POM) classes
-│   │   ├── api/                     # RestAssured clients, endpoints, payload builders
-│   │   ├── db/                      # JDBC connectors, queries, DB validators
-│   │   ├── events/                  # Kafka/SQS consumers, event validators
-│   │   ├── contracts/               # Pact consumer tests
-│   │   ├── stepdefs/                # Cucumber Step Definitions
-│   │   ├── hooks/                   # Before/After hooks (screenshots, cleanup)
-│   │   └── runners/                 # TestNG runners (parallel, smoke, regression)
-│   └── test/resources/
-│       ├── features/                # Gherkin feature files
-│       ├── schemas/                 # JSON schemas for API validation
-│       ├── pact/                    # Pact contracts
-│       ├── testdata/                # Environment-specific test data
-│       └── config.properties         # Global configuration
-├── pom.xml                           # Maven dependencies & plugins
-├── .gitignore                       # Excludes target/, logs/, allure-results/
-└── .gitattributes                   # Ensures Java language detection
-```
-
+The structure is illustrative. The architecture principles and boundaries are more important than exact folder names.

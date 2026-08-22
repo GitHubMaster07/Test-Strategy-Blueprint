@@ -1,249 +1,346 @@
-# Functional Testing Layers
+# Test Layers and Coverage Strategy
 
-This document defines the functional testing layers used across the system.  
-Each layer has a clear purpose, scope, coverage expectations, best practices, and anti‑patterns.  
-The goal is to ensure deterministic, maintainable, scalable, and audit‑ready test coverage.
+## 1. Purpose
 
----
+This document defines how functional risks are distributed across unit, API, contract, integration, database, event, UI, and end-to-end testing.
 
-## 1. Unit Testing
-
-### 1.1 Purpose
-Validate individual functions, classes, and components in isolation without external dependencies.
-
-### 1.2 Scope
-- Business logic
-- Utility functions
-- Data transformations
-- Validation rules
-- Error handling
-
-### 1.3 Coverage Expectations
-- ≥ 80% line coverage
-- 100% coverage for critical logic
-- Zero external calls (no DB, no API, no network)
-
-### 1.4 Best Practices
-- Use mocks/stubs for all dependencies
-- Fast execution (< 1 second per test)
-- Deterministic behavior
-- No shared state
-
-### 1.5 Anti‑Patterns
-- Calling real APIs or DB
-- Using sleeps or time‑dependent logic
-- Testing multiple components in one test
+The objective is not to maximize coverage at every layer. The objective is to place each risk at the **cheapest reliable layer that can detect it with sufficient confidence**, while using higher-cost tests only where they provide unique evidence.
 
 ---
 
-## 2. API Testing
+## 2. Layer Selection Principles
 
-### 2.1 Purpose
-Validate service behavior, business rules, and data contracts at the API layer.
+### 2.1 Cheapest Reliable Layer
 
-### 2.2 Scope
-- Request/response validation
-- Business logic validation
-- Authentication & authorization
-- Error handling
-- Schema validation
-- Contract enforcement
+A test belongs at the lowest layer that can validate the intended risk without creating false confidence.
 
-### 2.3 Coverage Expectations
-- All critical endpoints covered
-- Positive + negative + edge cases
-- JSON schema validation for all responses
-- Contract tests for all consumer‑facing APIs
+Examples:
 
-### 2.4 Best Practices
-- Use RestAssured with reusable request specs
-- Validate status codes, headers, payloads
-- Validate schemas for all responses
-- Use payload builders for request bodies
-- Use WireMock for unstable dependencies
+| Risk | Preferred Layer | Why |
+|---|---|---|
+| calculation/business rule | Unit/API | fast and deterministic |
+| API schema compatibility | Contract/API | catches breaking changes early |
+| persistence/reconciliation | API + DB | validates behavior and stored state |
+| service-to-service behavior | Integration/Event | validates real interaction |
+| critical customer journey | UI/E2E | confirms system works from user perspective |
+| visual/usability issue | UI/manual/accessibility | cannot be proven by backend tests |
 
-### 2.5 Anti‑Patterns
-- UI‑driven API tests
-- Hardcoded URLs or tokens
-- Mixing API and DB logic in the same test
+### 2.2 Avoid Duplicate Assertions
+
+The same business rule should not be repeated across every layer unless each test protects a different failure mode.
+
+### 2.3 Higher Layers Require Stronger Justification
+
+As tests move upward toward E2E, they become slower, more environment-dependent, and more expensive to maintain. The required business-risk justification therefore increases.
 
 ---
 
-## 3. UI Testing
+## 3. Coverage Model
 
-### 3.1 Purpose
-Validate user workflows, visual behavior, and UI‑level business rules.
+The blueprint uses a **risk-adjusted test pyramid**, not fixed percentages.
 
-### 3.2 Scope
-- Critical user journeys
-- Form validation
-- Navigation
-- Visual confirmation (optional)
-- Cross‑browser compatibility (if required)
+Typical direction:
 
-### 3.3 Coverage Expectations
-- Minimal UI coverage (≤ 10% of total tests)
-- Only critical flows automated
-- All non‑critical flows tested at API level
+```text
+              E2E / UI
+          limited critical journeys
+                 /\
+                /  \
+       Integration / Events
+              /      \
+         API / Contracts
+            /          \
+           Unit / Component
+```
 
-### 3.4 Best Practices
-- Page Object Model (POM)
-- Stable locators (data‑test‑id)
-- Explicit waits, no sleeps
-- Screenshots on failure
-- Parallel execution with ThreadLocal WebDriver
-
-### 3.5 Anti‑Patterns
-- Over‑automating UI
-- Using XPath for everything
-- Embedding assertions inside Page Objects
-- Flaky waits or sleeps
+Percentages such as “10% UI” or “5% E2E” may be useful heuristics, but are not governance targets. A system with complex UI behavior may require more UI coverage; an API platform may require almost none.
 
 ---
 
-## 4. Database Testing
+## 4. Unit and Component Testing
 
-### 4.1 Purpose
-Validate data integrity, persistence, and transactional behavior.
+### Purpose
+Validate isolated logic and component behavior with minimal infrastructure.
 
-### 4.2 Scope
-- CRUD operations
-- Referential integrity
-- Data transformations
-- Transaction boundaries
-- Schema validation
+### Best suited for
+- calculations,
+- validation rules,
+- transformations,
+- state transitions,
+- error handling,
+- domain logic.
 
-### 4.3 Coverage Expectations
-- Validate DB state after API/UI actions
-- Use read‑only queries in tests
-- Use parameterized queries
+### Quality expectations
+- very fast execution,
+- deterministic behavior,
+- no external network dependency,
+- critical logic covered by meaningful assertions.
 
-### 4.4 Best Practices
-- ThreadLocal DB connections
-- SQL in separate query files
-- DB validators for reusable checks
-- No destructive operations in tests
+### Architect decision
+Do not use line coverage alone as a quality metric. Coverage percentage identifies unexecuted code; it does not prove correct behavior.
 
-### 4.5 Anti‑Patterns
-- Writing data directly to DB to simulate flows
-- Hardcoding SQL inside tests
-- Using DB tests as integration tests
-
----
-
-## 5. Integration Testing
-
-### 5.1 Purpose
-Validate interactions between multiple services, components, or layers.
-
-### 5.2 Scope
-- API → DB
-- UI → API → DB
-- Service → service interactions
-- External dependency flows (via WireMock)
-
-### 5.3 Coverage Expectations
-- All critical cross‑service flows
-- All integrations with external systems
-- All error propagation paths
-
-### 5.4 Best Practices
-- Use WireMock for unstable dependencies
-- Validate DB state after API calls
-- Validate event emission (if applicable)
-- Use contract tests to reduce integration failures
-
-### 5.5 Anti‑Patterns
-- Using real external systems in CI
-- Over‑testing UI in integration flows
-- Mixing integration and E2E logic
+### Anti-patterns
+- mocking so heavily that production behavior is no longer represented,
+- testing implementation details instead of observable behavior,
+- treating a coverage threshold as sufficient release evidence.
 
 ---
 
-## 6. End-to-End Testing
+## 5. API Testing
 
-### 6.1 Purpose
-Validate real user journeys across the entire system, including UI, API, DB, and events.
+### Purpose
+Validate service behavior, business rules, security boundaries, and response contracts without UI cost.
 
-### 6.2 Scope
-- Full business workflows
-- Multi‑step user scenarios
-- Cross‑service orchestration
-- Realistic data flows
+### Best suited for
+- positive/negative business flows,
+- authentication and authorization,
+- validation/error handling,
+- idempotency,
+- pagination/filtering,
+- data contracts,
+- service-level regression.
 
-### 6.3 Coverage Expectations
-- Only the most critical flows (≤ 5% of total tests)
-- One E2E test per major business capability
-- All other coverage handled at lower layers
+### Coverage expectations
+Critical endpoints receive deeper risk-based coverage, including edge cases and failure behavior. Lower-risk endpoints may receive representative rather than exhaustive combinations.
 
-### 6.4 Best Practices
-- Use API calls for setup/teardown
-- Minimize UI interactions
-- Validate DB and event outputs
-- Capture full evidence (screenshots, logs, payloads)
+### Architect decision
+Prefer API automation over UI automation when both provide equivalent business confidence.
 
-### 6.5 Anti‑Patterns
-- Using E2E tests as regression suite
-- Heavy UI usage
-- Long, brittle workflows
-- Environment‑dependent logic
+### Anti-patterns
+- validating only status code `200`,
+- duplicating the entire API regression through UI,
+- hardcoded tokens/environment values,
+- treating schema validation as a substitute for business assertions.
 
 ---
 
-## 7. Contract Testing
+## 6. Contract Testing
 
-### 7.1 Purpose
-Ensure backward‑compatible communication between services using consumer‑driven contracts.
+### Purpose
+Detect incompatible changes between consumers and providers before full integration.
 
-### 7.2 Scope
-- Request/response structure
-- Required fields
-- Data types
-- Backward compatibility rules
+### Best suited for
+- request/response structure,
+- required fields and types,
+- provider expectations,
+- backward compatibility.
 
-### 7.3 Coverage Expectations
-- All consumer → provider interactions covered
-- All breaking changes detected before integration
+### Boundary
+Contract tests answer **“can these services still communicate as agreed?”** They do not answer whether the entire business workflow works.
 
-### 7.4 Best Practices
-- Use Pact for consumer tests
-- Publish contracts to Pact Broker
-- Verify provider in CI
-- Enforce versioning rules
-
-### 7.5 Anti‑Patterns
-- Using contract tests as API tests
-- Ignoring backward compatibility
-- Hardcoding provider URLs
+### Anti-patterns
+- using contracts as full API functional tests,
+- publishing contracts without provider verification,
+- maintaining contracts that no real consumer uses.
 
 ---
 
-## 8. Event-Driven Testing
+## 7. Database and Data Validation
 
-### 8.1 Purpose
-Validate event production, consumption, schema compliance, and processing logic.
+### Purpose
+Validate persistence, integrity, transformations, and data movement when stored data is itself a business risk.
 
-### 8.2 Scope
-- Kafka/SQS event emission
-- Consumer processing logic
-- Schema registry validation
-- DLQ handling
-- Ordering and idempotency
+### Best suited for
+- persistence checks,
+- source-to-target reconciliation,
+- referential integrity,
+- ETL transformations,
+- transactional outcomes,
+- audit/compliance data.
 
-### 8.3 Coverage Expectations
-- All critical event flows covered
-- Schema validation for all events
-- DLQ validation for failure scenarios
+### Decision rule
+Validate the database only when backend state provides evidence not already available from supported interfaces.
 
-### 8.4 Best Practices
-- Use embedded Kafka or test containers
-- Validate event payloads against schemas
-- Validate offsets and consumer groups
-- Validate idempotency and retries
-
-### 8.5 Anti‑Patterns
-- Using production Kafka in CI
-- Hardcoding offsets
-- Ignoring DLQ behavior
+### Anti-patterns
+- direct DB writes that bypass application behavior,
+- asserting internal implementation details that may legitimately change,
+- using SQL as the only proof of an end-user workflow.
 
 ---
+
+## 8. Integration Testing
+
+### Purpose
+Validate the real behavior of connected components and services.
+
+### Best suited for
+- API → database behavior,
+- service → service communication,
+- external dependency integrations,
+- transaction boundaries,
+- error propagation,
+- authentication between services.
+
+### Virtualization decision
+Use a real dependency when compatibility/integration is the risk. Use virtualization when deterministic behavior, fault injection, or dependency instability is the greater concern.
+
+### Anti-patterns
+- calling every external dependency in every CI test,
+- hiding integration behavior behind mocks only,
+- treating an integration test as an E2E test merely because multiple components are involved.
+
+---
+
+## 9. Event-Driven Testing
+
+### Purpose
+Validate asynchronous business behavior and messaging guarantees.
+
+### Best suited for
+- event schema,
+- publish/consume behavior,
+- ordering,
+- idempotency,
+- retries,
+- DLQ routing,
+- eventual consistency,
+- correlation across services.
+
+### Architecture considerations
+Timing assertions should reflect the system’s SLOs rather than arbitrary sleeps. Polling must be bounded and diagnostics must retain timestamps, keys, correlation IDs, and consumed payloads.
+
+### Anti-patterns
+- fixed sleeps,
+- hardcoded offsets,
+- ignoring duplicate delivery,
+- validating only event existence without validating meaning.
+
+---
+
+## 10. UI Testing
+
+### Purpose
+Validate behavior that is unique to the user interface and confirm selected critical user journeys.
+
+### Best suited for
+- navigation and interaction,
+- client-side validation,
+- browser-specific behavior,
+- accessibility hooks,
+- critical user workflows,
+- UI-only business risk.
+
+### Automation decision
+A UI test is justified when lower layers cannot provide equivalent evidence or when user-level integration confidence is specifically required.
+
+### Anti-patterns
+- reproducing every API scenario in UI,
+- unstable locator strategies,
+- assertions hidden in generic page utilities,
+- long multi-purpose UI tests,
+- using retries to tolerate unstable synchronization.
+
+---
+
+## 11. End-to-End Testing
+
+### Purpose
+Provide limited evidence that a high-value business capability works across the deployed system.
+
+### Selection criteria
+An E2E test should normally satisfy several of these conditions:
+
+- critical revenue/compliance/customer impact,
+- multiple services must cooperate,
+- production incidents would be severe,
+- lower-layer tests cannot prove orchestration,
+- the workflow is stable enough to automate economically.
+
+### E2E budget
+E2E tests are treated as a **scarce quality budget**, not the default regression layer.
+
+### Anti-patterns
+- using E2E as the main regression suite,
+- testing every permutation through UI,
+- long chains that fail for unrelated environmental reasons,
+- accepting high flakiness because the workflow is “important.”
+
+---
+
+## 12. Cross-Layer Coverage Matrix
+
+A traceability view should show which layers protect each risk.
+
+Example:
+
+| Business Capability / Risk | Unit | API | Contract | DB | Integration/Event | UI/E2E |
+|---|---:|---:|---:|---:|---:|---:|
+| Authentication rules | ✓ | ✓ |  |  | ✓ | smoke |
+| Profile persistence | ✓ | ✓ |  | ✓ |  | critical flow |
+| Provider compatibility |  | ✓ | ✓ |  | ✓ |  |
+| Payment/event processing | ✓ | ✓ | ✓ | ✓ | ✓ | critical journey |
+| Accessibility |  |  |  |  |  | ✓ |
+
+Blank cells are intentional when another layer provides sufficient evidence.
+
+---
+
+## 13. Coverage Gap Analysis
+
+A coverage gap exists when:
+
+- a critical risk has no owning test layer,
+- only a high-cost E2E test detects a defect that could be detected earlier,
+- a contract/integration boundary is unverified,
+- production incidents reveal untested failure modes,
+- automation exists but does not provide diagnostic evidence.
+
+Coverage reviews should therefore ask **“what risk is unprotected?”**, not only “what percentage is automated?”
+
+---
+
+## 14. Duplication Review
+
+Duplicate tests may be retained when they deliberately provide different evidence, such as:
+
+- API test proves business rule,
+- contract test proves compatibility,
+- E2E test proves orchestration.
+
+Duplicate tests should be removed when they repeat the same assertion with higher maintenance cost and no additional risk reduction.
+
+---
+
+## 15. Change-Based Test Selection
+
+Not every change requires every layer.
+
+Examples:
+
+| Change | Minimum Expected Validation |
+|---|---|
+| isolated business rule | unit + targeted API |
+| API schema change | API + contract + affected integration |
+| DB transformation | API/data + DB reconciliation |
+| UI-only styling | component/UI + accessibility/visual as relevant |
+| cross-service workflow | contract + integration/event + critical E2E |
+| authentication change | unit/API + security + targeted E2E |
+
+CI/CD can use this mapping to optimize feedback while nightly/release suites provide broader assurance.
+
+---
+
+## 16. Layer Ownership
+
+Developers, QA/SDETs, and platform teams share responsibility for coverage.
+
+- Developers primarily own unit/component quality and testability.
+- Product/QE teams own business-risk coverage across API, data, integration, and UI.
+- Architecture/platform teams help define contract, environment, and observability standards.
+- No layer is “QA-only” if another engineering role is best positioned to prevent the defect earlier.
+
+---
+
+## 17. Review Questions for Test Architects
+
+During design or test-plan review, ask:
+
+1. What failure are we trying to detect?
+2. What is the cheapest reliable layer for that failure?
+3. Are we duplicating evidence already provided elsewhere?
+4. What happens when a dependency fails or returns invalid data?
+5. Can the test run deterministically in CI?
+6. What evidence will be available when it fails?
+7. Is this automation still worth maintaining six months from now?
+
+These questions keep layer selection tied to risk and business value rather than tooling preference.
